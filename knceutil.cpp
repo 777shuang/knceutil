@@ -1,4 +1,4 @@
-#include "knceutil.h"
+#include "knceutil.hpp"
 
 #include <algorithm>
 
@@ -422,21 +422,21 @@ void KnceUtil::createKeyCodeTable() {
     };
 
     static TCHAR *realKeyCStrs[] = {
-        _T("“dŒ¹"), _T("ˆêŠ‡ŒŸõ"),
-        _T("ƒRƒ“ƒeƒ“ƒc1"), _T("ƒRƒ“ƒeƒ“ƒc2"), _T("ƒRƒ“ƒeƒ“ƒc3"), _T("ƒRƒ“ƒeƒ“ƒc4"),
-        _T("Ø‘Ö"), _T("‚µ‚¨‚è"), _T("Home"), _T("«‘ƒƒjƒ…["),
+        _T("é›»æº"), _T("ä¸€æ‹¬æ¤œç´¢"),
+        _T("ã‚³ãƒ³ãƒ†ãƒ³ãƒ„1"), _T("ã‚³ãƒ³ãƒ†ãƒ³ãƒ„2"), _T("ã‚³ãƒ³ãƒ†ãƒ³ãƒ„3"), _T("ã‚³ãƒ³ãƒ†ãƒ³ãƒ„4"),
+        _T("åˆ‡æ›¿"), _T("ã—ãŠã‚Š"), _T("Home"), _T("è¾æ›¸ãƒ¡ãƒ‹ãƒ¥ãƒ¼"),
         _T("Q"), _T("W"), _T("E"), _T("R"), _T("T"), _T("Y"), _T("U"),
         _T("I"), _T("O"), _T("P"),
         _T("A"), _T("S"), _T("D"), _T("F"), _T("G"), _T("H"), _T("J"),
         _T("K"), _T("L"),
         _T("Z"), _T("X"), _T("C"), _T("V"), _T("B"), _T("N"), _T("M"),
-        _T("ƒnƒCƒtƒ“"),
-        _T("‹@”\"), _T("ƒNƒŠƒA"), _T("Œã‘Ş"),
-        _T("‘OŒ©o"), _T("ŸŒ©o"), _T("‰¹—Ê‘å"), _T("‰¹—Ê¬"),
-        _T("•¶š‘å"), _T("•¶š¬"),
-        _T("‰¹º"), _T("—á/‰ğà"), _T("SƒWƒƒƒ“ƒv"),
-        _T("–ß‚é"),_T("Œˆ’è"),
-        _T("¶"), _T("ã"), _T("‰E"), _T("‰º")
+        _T("ãƒã‚¤ãƒ•ãƒ³"),
+        _T("æ©Ÿèƒ½"), _T("ã‚¯ãƒªã‚¢"), _T("å¾Œé€€"),
+        _T("å‰è¦‹å‡º"), _T("æ¬¡è¦‹å‡º"), _T("éŸ³é‡å¤§"), _T("éŸ³é‡å°"),
+        _T("æ–‡å­—å¤§"), _T("æ–‡å­—å°"),
+        _T("éŸ³å£°"), _T("ä¾‹/è§£èª¬"), _T("Sã‚¸ãƒ£ãƒ³ãƒ—"),
+        _T("æˆ»ã‚‹"),_T("æ±ºå®š"),
+        _T("å·¦"), _T("ä¸Š"), _T("å³"), _T("ä¸‹")
     };
 
     int numRealKeys = sizeof(realKeyCodes) / sizeof(int);
@@ -494,7 +494,7 @@ void KnceUtil::adjustDialogLayout(HWND hDlg) {
     HWND hChild = GetWindow(hDlg, GW_CHILD);
     while (hChild != NULL) {
         GetClassName(hChild, classNameCStr, 256);
-        if (_tcsicmp(classNameCStr, _T("combobox")) == 0)
+        if (lstrcmp(classNameCStr, _T("combobox")) == 0)
             SendMessage(hChild, CB_GETDROPPEDCONTROLRECT, 0, (LPARAM)&childRect);
         else
             GetWindowRect(hChild, &childRect);
@@ -528,57 +528,49 @@ void KnceUtil::dialogUnitsToPixels(int &xUnits, int &yUnits) {
     yUnits = yUnits / 8.0 * baseY;
 }
 
-bool KnceUtil::readPropertyFile(map<tstring, tstring> &props,
-    const tstring &fileName) {
+bool KnceUtil::readPropertyFile(map<tstring, tstring> &props, const tstring &fileName) {
 
-    FILE *file = _tfopen(fileName.c_str(), _T("r"));
-    if (file == NULL)
+    HANDLE file = CreateFile(fileName.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) { return false; }
+
+    DWORD fileSize = GetFileSize(file , NULL) , readSize;
+    TCHAR *buf = (TCHAR*)malloc(fileSize);
+    if (!ReadFile(file , buf , fileSize , &readSize , NULL))
+    {
+        free(buf);
         return false;
-
-    TCHAR lineBuf[1024];
-    char mbLineBuf[sizeof(lineBuf) * 2];
-
-    while (true) {
-        if (fgets(mbLineBuf, sizeof(mbLineBuf), file) == NULL)
-            break;
-
-        char *cr = strchr(mbLineBuf, '\n');
-        if (cr != NULL)
-            *cr = '\0';
-
-        MultiByteToWideChar(932, 0, mbLineBuf, -1, lineBuf, sizeof(lineBuf));
-
-        tstring line = lineBuf;
-        int pos = line.find(_T('='));
-
-        props[line.substr(0, pos)] = line.substr(pos + 1);
     }
 
-    fclose(file);
+    tstring line;
+    for(int i = 0 ; i < fileSize / sizeof(TCHAR) ; i++)
+    {
+        if(buf[i] == L'\n')
+        {
+            int pos = line.find(_T('='));
+            props[line.substr(0, pos)] = line.substr(pos + 1);
+            line = _T("");
+        }
+        else { line += buf[i]; }
+    }
+    CloseHandle(file);
 
     return true;
 }
 
-bool KnceUtil::writePropertyFile(const tstring &fileName,
-    const map<tstring, tstring> &props) {
+bool KnceUtil::writePropertyFile(const tstring &fileName, const map<tstring, tstring> &props) {
 
-    FILE *file = _tfopen(fileName.c_str(), _T("w"));
-    if (file == NULL)
-        return false;
+    HANDLE file = CreateFile(fileName.c_str(), GENERIC_WRITE, 0, NULL, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) { return false; }
 
-    char mbLineBuf[1024 * 2];
     map<tstring, tstring>::const_iterator iter = props.begin();
 
     for ( ; iter != props.end(); iter++) {
         tstring line = iter->first + _T("=") + iter->second + _T("\n");
-
-        WideCharToMultiByte(932, 0, line.c_str(), -1, mbLineBuf,
-            sizeof(mbLineBuf), NULL, NULL);
-
-        fputs(mbLineBuf, file);
+        DWORD writeSize;
+        WriteFile(file, line.c_str(), lstrlen(line.c_str()), &writeSize, NULL);
     }
 
-    fclose(file);
+    CloseHandle(file);
 
     return true;
 }

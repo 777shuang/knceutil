@@ -4,7 +4,9 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <cmath>
 #include <windows.h>
+#include <tchar.h>
 
 #ifdef UNICODE
 namespace std { typedef wstring tstring; }
